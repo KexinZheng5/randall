@@ -30,10 +30,34 @@ TAREXT = txz
 
 default: randall
 
-randall: randall.c
-	$(CC) $(CFLAGS) $@.c -o $@
-create: randall.c options.c output.c rand64-hw.c rand64-sw.c
-	$(CC) $(CFLAGS) randall.c options.c output.c rand64-mrand.c rand64-hw.c rand64-sw.c -o randall
+randall: randall.o options.o output.o rand64-hw.o rand64-sw.o rand64-mrand.o
+	$(CC) $(CFLAGS) randall.o options.o output.o rand64-hw.o rand64-sw.o rand64-mrand.o -o randall
+
+objectFiles: randall.c options.c output.c rand64-hw.c rand64-sw.c rand64-mrand.c
+	make randall.o
+	make options.o
+	make output.o
+	make rand64-hw.o
+	make rand64-sw.o
+	make rand64-mrand.o
+
+randall.o: randall.c
+	$(CC) $(CFLAGS) -c randall.c -o randall.o
+
+options.o: options.c
+	 $(CC) $(CFLAGS) -c options.c -o options.o
+
+output.o: output.c
+	$(CC) $(CFLAGS) -c output.c -o output.o
+
+rand64-hw.o: rand64-hw.o
+	$(CC) $(CFLAGS) -c rand64-hw.c -o rand64-hw.o
+
+rand64-sw.o: rand64-sw.c
+	$(CC) $(CFLAGS) -c rand64-sw.c -o rand64-sw.o
+
+rand64-mrand.o: rand64-mrand.c
+	$(CC) $(CFLAGS) -c rand64-mrand.c -o rand64-mrand.o
 
 assignment: randall-assignment.$(TAREXT)
 assignment-files = COPYING Makefile randall.c
@@ -51,5 +75,11 @@ randall-submission.$(TAREXT): $(submission-files)
 clean:
 	rm -f *.o *.$(TAREXT) randall
 
-test: randall
-	a=$$(./randall 5 | wc -c); if [ $$a -eq 5 ]; then echo 'success'; else echo 'fail'; fi
+clean.o:
+	rm -f *.o
+
+clean~: 
+	rm -f *~
+
+test: randall test
+	./test
