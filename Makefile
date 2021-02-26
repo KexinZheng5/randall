@@ -25,12 +25,8 @@ CFLAGS = $(OPTIMIZE) -g3 -Wall -Wextra -fanalyzer \
 
 # The archiver command, its options and filename extension.
 TAR = tar
-<<<<<<< HEAD
 TARFLAGS = -cvzf
 TAREXT = tgz
-=======
-TARFLAGS = -cvzf --transform 's,^,randall/,'
-TAREXT = txz
 
 default: randall
 
@@ -72,11 +68,8 @@ randall-assignment.$(TAREXT): $(assignment-files)
 submission: randall-submission.$(TAREXT)
 submission-files = $(assignment-files) \
   notes.txt options.c output.c rand64-hw.c rand64-sw.c rand64-mrand.c\
-
   options.h output.h rand64-hw.h rand64-sw.h rand64-mrand.h\
   randall test
-
-  options.h output.h rand64-hw.h rand64-sw.h rand64-mrand.h
 
 randall-submission.$(TAREXT): $(submission-files)
 	$(TAR) $(TARFLAGS) $@ $(submission-files)
