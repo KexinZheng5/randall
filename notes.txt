@@ -1,0 +1,480 @@
+*Create 'make check' for program testing: 
+
+1. 'make check' should check if the number of bytes printed equals to the input given. 
+	We can uase 'wc -c' for counter the number of characters produced by the output of randall. 
+	If the the output of 'wc -c' is the same as the pameter we give, 
+	the program passes the test. Else, the program fails the test. 
+
+2. implementation: 
+test: randall
+        a=$$(./randall 5 | wc -c); if [ $$a -eq 5 ]; then echo 'success'; else echo 'fail'; fi
+
+---------------------------------------------------------------------
+*Separate code into different files
+
+1. options.c contains all code needed to handle command-line options: 
+	- Although there is just one command-line argument so far, I created a struction 'options' 
+		to handle all option-related variables.
+		- The structure contains nbytes, output (for output option later), 
+			and the 3 function pointers: initialize, finalize, and rand64.
+			
+			struct options {
+			 // function pointers
+			 void (*initialize) (void);
+			 unsigned long long (*rand64) (void);
+			 void (*finalize) (void);
+			 // number of bytes
+			 long long nbytes;
+			 // input
+			 char* input;
+			 // output
+			 char* output;
+			};
+
+	- The first part inside the main function in randall.c that validates the options need 
+		to be put into a function inside options.c
+	- The function will take argc, argv, and an pointer to options structure.
+		
+		// process nbytes with result returned
+			bool nProcess(int argc, char** argv, struct options *op){
+			  /* Check arguments.  */
+			  bool valid = false;
+			  if (argc == 2)
+				{
+				  char *endptr;
+				  errno = 0;
+				  op->nbytes = strtoll (argv[1], &endptr, 10);
+				  if (errno)
+					perror (argv[1]);
+				  else
+					valid = !*endptr && 0 <= op->nbytes;
+				}
+			  if (!valid)
+				{
+				  fprintf (stderr, "%s: usage: %s NBYTES\n", argv[0], argv[0]);
+			 }
+
+			  // return whether arguments are valid
+			  return valid;
+			}
+			
+	- The header file should include errno.h, stdio.h, stblib.h, and stdbool.h
+		and the function declaration.
+
+2. output.c contains code that output the result: 
+	- output.c contains writebytes from randall.c
+	- The header file should include limits.h, stdbool.h, and stdio 
+		and the function declaration. 
+
+3. rand64-hw.c contains code for hardware-based random-number generation:
+	- rand64-hw.c defines cpuid as struc cupid, and it contains 
+		the function rdrand_supported, hardware_rand64_init,  hardware_rand64, and 
+		hardware_rand64_fini. 
+	- The header file would contain the function and structure declarations, 
+		and it includes cpuid.h and immintrin.h
+
+4. rand64-sw.c has code for software-based random-number generation: 
+	- rand64-sw.c contains a shared variable urandstream and function 
+		software_rand64_init, software_rand64, and software_rand64_fini. 
+	- The header file contains the function declarations and includes stdio.h and stdlib.h
+
+5. randall.c contains the main program: 
+	- the main function is modified to work with the options
+	structure and the process function: 
+		
+		#include "options.h"
+		#include "output.h"
+		#include "rand64-hw.h"
+		#include "rand64-sw.h"
+
+		/* Main program, which outputs N bytes of random data.  */
+		int
+		main (int argc, char **argv)
+		{
+		  struct options op;
+		  if (!nProcess(argc, argv, &op))
+			{
+			  printf("bad options");
+			  return 1;
+			}
+		  /* If there's no work to do, don't worry about which library to use. \
+		 */
+		  if (op.nbytes == 0){
+			printf("not working 0");
+			return 0;
+		  }
+		  /* Now that we know we have work to do, arrange to use the
+			 appropriate library.  */
+		  if (rdrand_supported ())
+			{
+			  op.initialize = hardware_rand64_init;
+			  op.rand64 = hardware_rand64;
+			  op.finalize = hardware_rand64_fini;
+			}
+		  else
+			{
+			  op.initialize = software_rand64_init;
+			  op.rand64 = software_rand64;
+			  op.finalize = software_rand64_fini;
+			}
+
+		  op.initialize ();
+		  int wordsize = sizeof op.rand64 ();
+		  int output_errno = 0;
+
+		  do
+			{
+			  unsigned long long x = op.rand64 ();
+			  int outbytes = op.nbytes < wordsize ? op.nbytes : wordsize;
+			  if (!writebytes (x, outbytes))
+				{
+				  output_errno = errno;
+				  break;
+				}
+			  op.nbytes -= outbytes;
+			}
+		  while (0 < op.nbytes);
+
+		  if (fclose (stdout) != 0)
+			output_errno = errno;
+
+		  if (output_errno)
+			{
+			  errno = output_errno;
+			  perror ("output");
+			}
+
+		  op.finalize ();
+		  return !!output_errno;
+		}
+
+---------------------------------------------------------------------
+*Modify options.c
+
+1. Create a function that can parse arguments. 
+	The function woule take argc, argc, and an options structure pointer. 
+	It should first use getopt to parse and arguments with flags. 
+	After that, a for loop would be used to get nbytes, which can be located in
+	anywhere in the command-line arguments. If it is found, and it is a number, 
+	it will be saved to the the options structure pointer. Else, the program 
+	prints out an error message and terminates. 
+	
+	// parse arguments
+	void parseArgs(int argc, char** argv, struct options* op){
+	  char c;
+	  char *endptr;
+	  bool bytesSet = false; 
+	  // initialize to 0
+	  op->input = 0;
+	  op->output = 0;
+	  while ((c = getopt (argc, argv, ":i:o:")) != -1){
+		switch (c)
+		  {
+		  // input
+		  case 'i':
+			if(optarg[0] == '-') {
+			  fprintf(stderr,
+					"Error: Option '-i' requires an operand\n");
+			  exit(EXIT_FAILURE);
+			}
+			op->input = optarg;
+			break;
+		  // output
+		  case 'o':
+			if(optarg[0] == '-') {
+			  fprintf(stderr,
+					"Error: Option '-o' requires an operand\n");
+			  exit(EXIT_FAILURE);
+			}
+			op->output = optarg;
+			break;
+		  // lack operand
+		  case ':':
+			  fprintf(stderr,
+					"Error: Option '-%c' requires an operand\n", optopt);
+			  exit(EXIT_FAILURE);
+			  break;
+		  // not recognized
+		  case '?':
+			  fprintf(stderr,
+					"Error: Unrecognized option: '-%c'\n", optopt);
+			  exit(EXIT_FAILURE);
+			  break;
+		  }
+		}
+		// find process nbytes
+		for(int i = 1; i < argc; i++) {
+		  // skip optional arguments
+		  if (!strcmp(argv[i], "-o") || !strcmp(argv[i], "-i"))
+			i++; 
+		  // store nbytes if not found
+		  else if (!bytesSet)
+		  {
+			errno = 0;
+			op->nbytes = strtoll (argv[i], &endptr, 10);
+			// nbytes is valid
+			if (!errno && !*endptr && 0 <= op->nbytes)
+			  bytesSet = true; 
+		  }
+		  // extra argument
+		  else 
+		  {
+			fprintf(stderr,
+					"Error: Extra argument '%s'\n", argv[i]);
+			exit(EXIT_FAILURE);
+		  }
+		}
+		// nbytes not found or not valid
+		if(bytesSet == false){
+		  fprintf(stderr,
+					"Error: NBYTES is invalid or not given\n");
+		  exit(EXIT_FAILURE);
+		}
+	}
+
+2. Create a function that handles the input argument.
+	The function would need 1 parameter: 'op' that is a pointer to
+	an options structure variable.
+	The function would have conditional branches that check which category the input
+	string belongs to and assign function pointers with the right functions. 
+	
+	// process input option
+	void inputProcess(struct options *op){
+	  // hardware (should be default)
+	  if(!(op->input) || !strcmp(op->input, "rdrand")){
+		// suported
+		if (rdrand_supported ()){
+		  hwInput(op);
+		}
+		// not suported but input is default (should switch to software)
+		else if (!(op->input)){
+		 swInput(op);
+		 setInput("/dev/random");
+		}
+		// not suported and hardware is specified
+		else{
+		  fprintf (stderr,
+			   "Error: hardware random-number generation is not available");
+		  exit(EXIT_FAILURE);
+		}   
+	  }
+	  // use mrand48_r
+	  else if(!strcmp(op->input, "mrand48_r")){
+		mrandInput(op);
+	  }
+	  // software generated random character with given file name
+	  else{
+		swInput(op);
+		// set inputfile name
+		setInput(op->input);
+	  }
+	}
+	
+3. Create 3 functions that assign functions to function pointers.
+
+	void hwInput(struct options *op){
+	  op->initialize = hardware_rand64_init;
+	  op->rand64 = hardware_rand64;
+	  op->finalize = hardware_rand64_fini;
+	}
+
+	void swInput(struct options *op){
+	  op->initialize = software_rand64_init;
+	  op->rand64 = software_rand64;
+	  op->finalize = software_rand64_fini;
+	}
+
+	void mrandInput(struct options *op){
+	  op->initialize = mrand48_init;
+	  op->rand64 = mrand48_rand64;
+	  op->finalize = mrand48_rand64_fini;
+	}
+
+4. Update the header file
+
+5. A main function was later created (after updating rand64.sw.c and creating rand64-mrand.c)
+	to test options.c to make sure it works before it is used in randall.c
+---------------------------------------------------------------------
+*Modify output.c
+
+1. Create a new function that write bytes using the write system call
+	The function takes nbytes, the number of bytes printed each time (size), 
+	and a function pointer rand64. 
+	In general, the program would allocate memory that with a size of 'size'. 
+	While there are still characters to write, new characters generated by rand64
+	will be added to the buffer, and the write function will be called. 
+	
+	void writebytessys(int nbytes, int size, unsigned long long (*rand64) (void)) {
+	  // initialize variables and allocate memory for the buffer
+	  char* buffer = (char *) malloc(size < nbytes? size : nbytes); 
+	  int iteration = nbytes/size + (nbytes%size < 1? nbytes%size : 1);
+
+	  // malloc failure
+	  if (!buffer){
+		fprintf(stderr,
+					"Error: Filed to allocate memory for characters\n");
+		exit(EXIT_FAILURE);
+	  }
+	  
+	  // for each write we will call
+	  for(int i = 0; i < iteration; i++){
+		// bytes written each time
+		int wbytes;
+		// bytes left less than buffersize
+		if(nbytes - i*size < size)
+		  wbytes = nbytes - i*size; 
+		else
+		  wbytes = size; 
+
+		// temporarily store size
+		int sTemp = size;
+		// generate random number
+		unsigned long long x = rand64();
+		// move number into buffer
+		for(int j = 0, s = 0; j < sTemp; j++, s++){
+		  // for every 8 bytes written -> generate a new number
+		  if(j%8 == 0 && j){
+			// generate random number
+			x = rand64();
+			s = 0;
+		  }
+		  buffer[j] = x >> (s*8) & 0xff;
+		}
+
+		// write to stdout
+		if(write(1, buffer, wbytes)<0){
+		fprintf(stderr, "Error: write failed\n");
+		exit(EXIT_FAILURE);
+		}
+	  }
+	  
+	  // free memory at the end
+	  free(buffer);
+	}
+	
+2. Update the header file
+
+3. A main function was created to test the writebytessys function to make sure 
+	it works before it is used in randall.c
+---------------------------------------------------------------------
+*Modify rand64-sw.c
+
+1. Create a static variable 'fName' to store file name. 
+
+2. SetInput function (called in inputProcess) is created to store parameter string 
+	to fName. 
+	
+3. Update software_rand64_init so that it opens the file 'fName' 
+	and assign the result to urandstream. 
+	
+4. Update the header file
+---------------------------------------------------------------------
+*Create rand64-mrand.c and rand64-mrand.c
+
+1. Functions within rand64-mrand.c will be used to generate a random 64 bit integer 
+	using mrand48_r. Similar to the process of using hardware or software to 
+	generate random number, 3 functions will be created to initialization, 
+	generating number, and finalizing everything when it's no longer used. 
+	
+2. A static drand48_data structure is declared since it's used for mrand48_r. 
+
+3. In the initialization function, initialize the data buffer using srand48_r. 
+
+	void mrand48_init(void){
+		// initialize data buffer
+		srand48_r(time(0), &buffer);
+	}
+	
+4. For the function that generates the number, 2 32-bit numbers are generated 
+	using mrand48_r, and they represent the most and least significant 32 bits. 
+	Masking and shifting are used to combine these 2 numbers to form a unsigned 
+	long long (64-bit). 
+	
+	unsigned long long mrand48_rand64(void){
+	  // most and least significant bits
+	  long int most = 0;
+	  long int least = 0;
+	  mrand48_r(&buffer, &most);
+	  mrand48_r(&buffer, &least);
+	  least = (unsigned long long int)least & 0xffffffff;
+	  // form 64 bit integer
+	  return ((unsigned long long int)most << 32) | least; 
+	}
+
+5. The finalizing function should do nothing. 
+
+6. Update the header file
+
+7. A main function was created to test rand64-mrand.c to make sure 
+	it works before it is used in randall.c
+---------------------------------------------------------------------
+*Combining everthing in randall.c
+
+1. Include "rand64-mrand.h"
+
+2. Rewrite the main function: 
+	
+	(1). To get things set up, an options structure is declared, 
+		and argProcess is called to process arguments. 
+	(2). Check whether there is nothing to write (op.nbytes is 0). 
+		If so, return 0. 
+	(3). Keep the original main's initialization: 
+		
+		  op.initialize ();
+		  int wordsize = sizeof op.rand64 ();
+		  int output_errno = 0;
+		  
+	(4). Process the output option. If output is "stdio" or the character 
+		pointer is null. Use the original main's method to generate output. 
+	(5). Otherwise, output should be a number. The program will validate whether 
+		output is greater than zero. If so, writebytessys will be called to 
+		generate output. Else, an error messsage will be printed, and the program
+		exits. 
+	(6). The original main's finalization is kept: 
+	
+		op.finalize ();
+		return !!output_errno;
+
+3. The main function is tested using the given tests on Piazza to make sure the 
+	correct output is produced. Valgrind is used to make sure there is no memory leak. 
+---------------------------------------------------------------------
+*Modifying the makefile
+
+1. Store the previously used tests into file 'test'. 
+	In the makefile, modify the 'check' rule so that it execute 'test' file instead. 
+
+2. Create rules for generating .o files for each .c file
+
+3. Make objectFiles create .o file for all .c file by running 'make [filename].o" 
+	for all .c files
+	
+4. Modify randall rule so that it generate the executable file using existing .o files. 
+
+5. Additional rules for removing unnecessary files are created. 
+
+6. Modify 'submission' rule to generate .tgz file
+---------------------------------------------------------------------
+*Sanity check
+1. time dd if=/dev/urandom ibs=8192 obs=8192 count=16384 >/dev/null
+	Result: 
+		real    0m1.009s
+		user    0m0.019s
+		sys     0m0.989s
+
+2. time ./randall 133562368 >/dev/null
+	Result: 
+		real    0m3.845s
+		user    0m3.822s
+		sys     0m0.019s
+
+3. time ./randall 133562368 | cat >/dev/null
+	Result: 
+		real    0m4.219s
+		user    0m3.881s
+		sys     0m0.538s
+
+4. time ./randall 133562368 >rand.data
+	Result: 
+		real    0m5.751s
+		user    0m3.830s
+		sys     0m0.159s

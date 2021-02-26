@@ -25,13 +25,14 @@ CFLAGS = $(OPTIMIZE) -g3 -Wall -Wextra -fanalyzer \
 
 # The archiver command, its options and filename extension.
 TAR = tar
-TARFLAGS = -cvzf --transform 's,^,randall/,'
-TAREXT = txz
+TARFLAGS = -cvzf
+TAREXT = tgz
 
 default: randall
 
 randall: randall.o options.o output.o rand64-hw.o rand64-sw.o rand64-mrand.o
-	$(CC) $(CFLAGS) randall.o options.o output.o rand64-hw.o rand64-sw.o rand64-mrand.o -o randall
+	$(CC) $(CFLAGS) randall.o options.o output.o rand64-hw.o rand64-sw.o\
+	 rand64-mrand.o -o randall
 
 objectFiles: randall.c options.c output.c rand64-hw.c rand64-sw.c rand64-mrand.c
 	make randall.o
@@ -67,9 +68,10 @@ randall-assignment.$(TAREXT): $(assignment-files)
 submission: randall-submission.$(TAREXT)
 submission-files = $(assignment-files) \
   notes.txt options.c output.c rand64-hw.c rand64-sw.c rand64-mrand.c\
-  options.h output.h rand64-hw.h rand64-sw.h rand64-mrand.h
+  options.h output.h rand64-hw.h rand64-sw.h rand64-mrand.h\
+  randall test
 randall-submission.$(TAREXT): $(submission-files)
-	$(TAR) $(TARFLAGS) -cf $@ $(submission-files)
+	$(TAR) $(TARFLAGS) $@ $(submission-files)
 
 .PHONY: default clean assignment submission
 
