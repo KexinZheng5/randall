@@ -81,5 +81,5 @@ clean.o:
 clean~: 
 	rm -f *~
 
-test: randall test
+check: randall test
 	./test
