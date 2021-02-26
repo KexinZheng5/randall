@@ -37,11 +37,8 @@ main (int argc, char **argv)
   argProcess(argc, argv, &op);
 
   // no work -> exit program
-  if (op.nbytes == 0){
-    printf("not working 0");
+  if (op.nbytes == 0)
     return 0;
-  }
-  
   
   // initialize
   op.initialize ();
