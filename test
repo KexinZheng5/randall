@@ -9,9 +9,3 @@ a=$(./randall -o 5 10 | wc -c); if [ $a -eq 10 ]; then echo 'success'; else echo
 a=$(./randall -i mrand48_r 10 | wc -c); if [ $a -eq 10 ]; then echo 'success'; else echo 'fail'; fi
 
 a=$(./randall 5 | wc -c); if [ $a -eq 5 ]; then echo 'success'; else echo 'fail'; fi
-<<<<<<< HEAD
-=======
-
-
-
->>>>>>> 1e1aa3ae1f9cc68c20abbcb42c130b1f8d642f48
