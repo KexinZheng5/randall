@@ -2,14 +2,23 @@
 
 /* Input stream containing random bytes.  */
 static FILE *urandstream;
+static char * fName;
 
+// set input file name
+void
+setInput(char* fileName){
+  fName = fileName;
+}
+  
 /* Initialize the software rand64 implementation.  */
 void
 software_rand64_init (void)
 {
-  urandstream = fopen ("/dev/random", "r");
-  if (! urandstream)
-    abort ();
+  urandstream = fopen (fName, "r");
+  if (! urandstream){
+    fprintf(stderr, "Error: failed to open input file: %s\n", fName);
+    exit(2);
+  }
 }
 
 /* Return a random value, using software operations.  */

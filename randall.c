@@ -24,6 +24,7 @@
 
 #include "options.h"
 #include "output.h"
+#include "rand64-mrand.h"
 #include "rand64-hw.h"
 #include "rand64-sw.h"
 
@@ -31,57 +32,70 @@
 int
 main (int argc, char **argv)
 {
+  // process argument
   struct options op; 
-  if (!argProcess(argc, argv, &op))
-    {
-      printf("bad options");
-      return 1;
-    }
-  /* If there's no work to do, don't worry about which library to use.  */
+  argProcess(argc, argv, &op);
+  /*
+  printf("nbytes: %llu\n", op.nbytes);
+   printf("input: %s\n", op.input);
+  printf("output: %s\n", op.output);
+  printf("init: %x\n", op.initialize);
+  printf("rand: %x\n", op.rand64);
+  printf("fin: %x\n", op.finalize);
+  */
+  // no work -> exit program
   if (op.nbytes == 0){
     printf("not working 0");
     return 0;
   }
-  /* Now that we know we have work to do, arrange to use the
-     appropriate library.  */
-  if (rdrand_supported ())
-    {
-      op.initialize = hardware_rand64_init;
-      op.rand64 = hardware_rand64;
-      op.finalize = hardware_rand64_fini;
-    }
-  else
-    {
-      op.initialize = software_rand64_init;
-      op.rand64 = software_rand64;
-      op.finalize = software_rand64_fini;
-    }
-
+  
+  
+  // initialize
   op.initialize ();
   int wordsize = sizeof op.rand64 ();
   int output_errno = 0;
 
-  do
-    {
-      unsigned long long x = op.rand64 ();
-      int outbytes = op.nbytes < wordsize ? op.nbytes : wordsize;
-      if (!writebytes (x, outbytes))
-	{
-	  output_errno = errno;
-	  break;
-	}
-      op.nbytes -= outbytes;
-    }
-  while (0 < op.nbytes);
+  // stdio output
+  if (!op.output || !strcmp(op.output, "stdio"))
+  {
+    do
+      {
+	unsigned long long x = op.rand64 ();
+	int outbytes = op.nbytes < wordsize ? op.nbytes : wordsize;
+	if (!writebytes (x, outbytes))
+        {
+          output_errno = errno;
+          break;
+        }
+	op.nbytes -= outbytes;
+      }
+    while (0 < op.nbytes);
 
-  if (fclose (stdout) != 0)
-    output_errno = errno;
+    if (fclose (stdout) != 0)
+      output_errno = errno;
 
-  if (output_errno)
+    if (output_errno)
     {
       errno = output_errno;
       perror ("output");
     }
+  }
+  // write system call
+  else{
+    // validate output
+     char *endptr;
+     errno = 0;
+     int n = strtol (op.output, &endptr, 10);
+     //printf("%d\n", n);
+     //printf("%d\n", errno);
+     //printf("%d\n", *endptr);
+     if (errno || (*endptr)){
+       fprintf(stderr,
+	       "Error: invalid output (can't be zero)\n");
+       exit(EXIT_FAILURE);
+     }
+     writebytessys(op.nbytes,n,op.rand64);
+  }
 
   op.finalize ();
   return !!output_errno;

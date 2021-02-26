@@ -33,7 +33,7 @@ default: randall
 randall: randall.c
 	$(CC) $(CFLAGS) $@.c -o $@
 create: randall.c options.c output.c rand64-hw.c rand64-sw.c
-	$(CC) $(CFLAGS) randall.c options.c output.c rand64-hw.c rand64-sw.c -o randall
+	$(CC) $(CFLAGS) randall.c options.c output.c rand64-mrand.c rand64-hw.c rand64-sw.c -o randall
 
 assignment: randall-assignment.$(TAREXT)
 assignment-files = COPYING Makefile randall.c

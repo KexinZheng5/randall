@@ -1,7 +1,7 @@
 #include "rand64-hw.h"
 
 /* Return information about the CPU.  See <http://wiki.osdev.org/CPUID>.  */
-struct cpuid
+static struct cpuid
 cpuid (unsigned int leaf, unsigned int subleaf)
 {
   struct cpuid result;
