@@ -35,14 +35,7 @@ main (int argc, char **argv)
   // process argument
   struct options op; 
   argProcess(argc, argv, &op);
-  /*
-  printf("nbytes: %llu\n", op.nbytes);
-   printf("input: %s\n", op.input);
-  printf("output: %s\n", op.output);
-  printf("init: %x\n", op.initialize);
-  printf("rand: %x\n", op.rand64);
-  printf("fin: %x\n", op.finalize);
-  */
+
   // no work -> exit program
   if (op.nbytes == 0){
     printf("not working 0");
