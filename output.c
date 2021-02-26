@@ -28,7 +28,7 @@ void writebytessys(int nbytes, int size, unsigned long long (*rand64) (void)) {
     exit(EXIT_FAILURE);
   }
   
-  //printf("%d", iteration);
+  // for each write we will call
   for(int i = 0; i < iteration; i++){
     // bytes written each time
     int wbytes;
