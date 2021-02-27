@@ -11,8 +11,8 @@ void mrand48_init(void){
 // generate character
 unsigned long long mrand48_rand64(void){
   // most and least significant bits
-  long int most = 0;
-  long int least = 0;
+  long int most;
+  long int least;
   mrand48_r(&buffer, &most);
   mrand48_r(&buffer, &least);
   least = (unsigned long long int)least & 0xffffffff;
